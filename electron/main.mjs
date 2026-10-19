@@ -1,0 +1,295 @@
+import { app, BrowserWindow, ipcMain, dialog, shell, session, screen, Menu, Tray, nativeImage, systemPreferences, powerMonitor } from "electron";
+import { fileURLToPath } from "node:url";
+import { join, dirname, resolve } from "node:path";
+import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
+import { slog, setLogLevel } from "../server/log.mjs";
+
+const require = createRequire(import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const APP_ICON = join(__dirname, "../build/icon.icns");
+const SERVER_PORT = 8799;
+const OGB_PORT = 8799;
+const DESKTOP_MUTATION_HEADER = "x-desktop-mutation";
+const desktopMutationToken = randomUUID();
+
+let mainWindow = null;
+let startupScreen = null;
+let desktopTray = null;
+let desktopShutdownStarted = false;
+let serverReady = false;
+let serverProc = null;
+let environmentsState = null;
+let desktopDataDirLease = null;
+let runningDataDir = null;
+let secureCredentials = null;
+let secureCredentialState = null;
+let credentialStoreUnavailable = false;
+let desktopRemoteAccess = null;
+let desktopCompanionRelay = null;
+let cloudAccount = null;
+let cloudAccountRestoring = false;
+let cloudAccountStarted = null;
+let cloudSignInRestored = false;
+let managedDesktop = null;
+let companyBackupSchedule = null;
+let companyBackupController = null;
+let companyBackupState = { busy: false, pendingRestore: false };
+let preparedCompanyRestore = null;
+let companyRestoreCommitting = false;
+let companyBackupConfigurationRevision = 0;
+let computerSharing = null;
+let cloudSync = null;
+let lendingTray = null;
+let cloudMove = null;
+let cuaReady = Promise.resolve({ mode: "unavailable", reason: "unsupported-platform" });
+let cuaCleanedUp = false;
+let signalQuitRequested = false;
+let displayMediaRequestCount = 0;
+let desktopCapturer = null;
+let displayMediaGuard = { consume: () => true };
+let routineWake = { poll: () => ({}), stop: () => {} };
+let organizationEntry = { restore: async () => false, settingsOpened: () => {}, state: () => ({}) };
+let organizationEntryReady = false;
+let cloudEntry = { ready: async () => false };
+let desktopCompanionState = () => ({});
+let rememberCompanionKeepAwake = () => {};
+let companionPairing = async () => ({});
+let companionCloudDesktopAccess = async () => {};
+let companionBrowserControlAccess = async () => {};
+let companionRevoke = async () => {};
+let refreshDesktopCompanionTailscale = async () => {};
+let startDesktopCompanionRelay = async () => ({ port: SERVER_PORT });
+let stopDesktopCompanion = async () => {};
+let startDesktopCompanion = async () => {};
+let desktopCompanionAccess = () => null;
+let ensureCompanionAccountService = () => ({ state: () => ({}), requestCode: async () => {}, verifyCode: async () => {}, retry: async () => {}, prepare: async () => {}, signOut: async () => {}, restore: async () => {} });
+let ensureManagedDesktop = () => ({ state: () => ({}), begin: async () => {}, reopen: async () => {}, refresh: async () => {}, disconnect: async () => {}, requestBackup: async () => {} });
+let sharingController = () => ({ start: () => {}, cloudState: () => ({}), activity: () => [], save: async () => {}, revoke: async () => {}, identity: async () => ({}), saveCloud: async () => {} });
+let validateSharedFolders = async (folders) => folders;
+let stopLending = () => {};
+let cloudLendingEnvironment = () => null;
+let ensureCloudAccount = () => ({ state: () => ({}), pairHome: async () => {}, growDisk: async () => {}, openDashboard: async () => {}, start: async () => {}, close: async () => {} });
+let cloudAccountRestored = async () => {};
+let cloudOffersReady = async () => true;
+let cloudTrialNotices = () => ({ due: () => null, seen: () => {} });
+let cloudPlanDisk = () => 0;
+let cloudPlanSnapshot = () => ({});
+let myCloudOrigin = () => null;
+let savedCloudHomeOrigin = () => null;
+let cloudTarget = () => ({ sync: "", look: "" });
+let lookFile = () => "";
+let persistEnvironments = () => {};
+let withEnvironmentLook = () => ({});
+let readEnvironments = () => ({ environments: [], activeId: "local" });
+let forgetEnvironment = async () => {};
+let switchEnvironment = async () => ({ ok: true });
+let createLocalEnvironment = () => "";
+let connectHostedWorkspace = async () => {};
+let workspaceSummary = () => ({});
+let workspaceMenuTemplate = () => [];
+let cloudMenuOptions = () => ({});
+let workspaceMenuAction = async (fn) => fn();
+let openWorkspaceSettings = () => {};
+let navigateMainWindow = () => {};
+let activeEnvironment = () => ({ origin: null });
+let mintOwnerCode = async () => "";
+let desktopCapabilities = () => ({});
+let createAllWindowsClosedQuit = () => ({ settleStartup: () => {} });
+let createStartupScreen = () => ({ ready: Promise.resolve(), dispose: () => {}, window: null });
+let createSystemTray = () => ({ show: () => false, hide: () => {}, destroy: () => {}, isHidden: () => false, windowShown: () => {} });
+let collisionFreeDownloadPath = () => "";
+let revealDownloadWhenDone = () => {};
+let desktopDataDir = () => "";
+let bootEnvironmentDir = () => ({ fellBack: false, dataDir: "" });
+let acquireDataDirLease = () => ({ release: () => {} });
+let installServerSessions = () => {};
+let loadSecureCredentials = async () => ({});
+let saveSecureCredentials = async () => {};
+let updateSecureCredentialDocument = async () => {};
+let createSecureCredentialState = () => ({ read: () => ({}) });
+let ensurePhoneSecretIdentity = async () => {};
+let secureComposioConfig = async () => {};
+let secureWorkspaceConfig = async () => {};
+let ensureManagedComposioCredentials = async () => {};
+let syncManagedComposioCredentials = () => {};
+let composioBrokerUrl = () => "";
+let registerCuaIpc = () => {};
+let startCua = async () => ({ mode: "unavailable" });
+let stopCua = async () => {};
+let setCuaStateListener = () => {};
+let cuaReady = Promise.resolve({ mode: "unavailable" });
+let registerUpdaterIpc = () => {};
+let registerDesktopPrefs = () => {};
+let jsonFile = () => ({});
+let cloudAccountRestored = async () => {};
+let companionEnabledAtRest = () => false;
+let managedDesktop = { whenRestored: async () => {} };
+let startDesktopCompanion = async () => {};
+let refreshSharedComputersAllowed = async () => true;
+let computerSharing = { cloudChanged: () => {} };
+let installCloudFiles = () => ({ start: () => {}, close: () => {} });
+let desktopMutationToken = randomUUID();
+let createCloudLook = () => ({});
+let installCloudBuy = () => {};
+let requireSharedComputers = async () => {};
+let sharingController = () => ({ state: () => ({}), revoke: async () => {}, activity: () => [], save: async () => {} });
+let randomUUID = () => crypto.randomUUID();
+let createCloudMove = () => ({ state: () => ({}), move: async () => ({ phase: "done" }), cancel: async () => ({}), restorePrevious: async () => ({}), reset: () => {}, estimate: async () => ({}), close: () => {} });
+let moveFit = () => ({ fit: "ok" });
+let moveBlocked = () => null;
+let moveRefusal = () => null;
+let parseCloudMoveStatus = () => ({});
+let peekCloudMove = async () => ({ status: null, refusal: "unreachable" });
+let cloudMoveDismissed = () => false;
+let dismissCloudMove = () => {};
+let cloudMoveOverview = async () => ({});
+let cloudMoveChoicesFile = () => "";
+let cloudPageAsking = () => null;
+let cloudPageSenderAllowed = () => false;
+let updaterPageAllowed = () => false;
+let updaterPageOffered = () => false;
+let openLendingSettings = () => {};
+let cloudAccount = { homeTarget: () => ({ origin: null }) };
+let rememberedHome = null;
+let desktopRemoteAccess = null;
+let myCloud = () => null;
+let cloudSignInRestored = false;
+let desktopRemoteAccess = null;
+let startUpdater = () => {};
+let refreshApplicationMenu = () => {};
+let openWindowForLink = () => {};
+let createWindow = () => {};
+let senderIsLocal = () => true;
+let workspaceSenderAllowed = () => true;
+let rendererOrigin = () => "http://localhost:5199";
+let environmentsState = { environments: [], activeId: "local" };
+let LOCAL_ID = "local";
+let serverSupervisor = { shutdown: async () => true };
+let syncCompanionKeepAwake = () => {};
+let setLogLevel = () => {};
+let slog = () => {};
+let desktopCompanionRelay = null;
+let desktopCompanionState = () => ({});
+let rememberCompanionKeepAwake = () => {};
+let companionPairing = async () => ({});
+let companionCloudDesktopAccess = async () => {};
+let companionBrowserControlAccess = async () => {};
+let companionRevoke = async () => {};
+let refreshDesktopCompanionTailscale = async () => {};
+let startDesktopCompanionRelay = async () => ({ port: SERVER_PORT });
+let stopDesktopCompanion = async () => {};
+let startDesktopCompanion = async () => {};
+let desktopCompanionAccess = () => null;
+let ensureCompanionAccountService = () => ({ state: () => ({}), requestCode: async () => {}, verifyCode: async () => {}, retry: async () => {}, prepare: async () => {}, signOut: async () => {}, restore: async () => {} });
+let ensureManagedDesktop = () => ({ state: () => ({}), begin: async () => {}, reopen: async () => {}, refresh: async () => {}, disconnect: async () => {}, requestBackup: async () => {} });
+let sharingController = () => ({ start: () => {}, cloudState: () => ({}), activity: () => [], save: async () => {}, revoke: async () => {}, identity: async () => ({}), saveCloud: async () => {} });
+let validateSharedFolders = async (folders) => folders;
+let stopLending = () => {};
+let cloudLendingEnvironment = () => null;
+let ensureCloudAccount = () => ({ state: () => ({}), pairHome: async () => {}, growDisk: async () => {}, openDashboard: async () => {}, start: async () => {}, close: async () => {} });
+let cloudAccountRestored = async () => {};
+let cloudOffersReady = async () => true;
+let cloudTrialNotices = () => ({ due: () => null, seen: () => {} });
+let cloudPlanDisk = () => 0;
+let cloudPlanSnapshot = () => ({});
+let myCloudOrigin = () => null;
+let savedCloudHomeOrigin = () => null;
+let cloudTarget = () => ({ sync: "", look: "" });
+let lookFile = () => "";
+let persistEnvironments = () => {};
+let withEnvironmentLook = () => ({});
+let readEnvironments = () => ({ environments: [], activeId: "local" });
+let forgetEnvironment = async () => {};
+let switchEnvironment = async () => ({ ok: true });
+let createLocalEnvironment = () => "";
+let connectHostedWorkspace = async () => {};
+let workspaceSummary = () => ({});
+let workspaceMenuTemplate = () => [];
+let cloudMenuOptions = () => ({});
+let workspaceMenuAction = async (fn) => fn();
+let openWorkspaceSettings = () => {};
+let navigateMainWindow = () => {};
+let activeEnvironment = () => ({ origin: null });
+let mintOwnerCode = async () => "";
+let desktopCapabilities = () => ({});
+let createAllWindowsClosedQuit = () => ({ settleStartup: () => {} });
+let createStartupScreen = () => ({ ready: Promise.resolve(), dispose: () => {}, window: null });
+let createSystemTray = () => ({ show: () => false, hide: () => {}, destroy: () => {}, isHidden: () => false, windowShown: () => {} });
+let collisionFreeDownloadPath = () => "";
+let revealDownloadWhenDone = () => {};
+let desktopDataDir = () => "";
+let bootEnvironmentDir = () => ({ fellBack: false, dataDir: "" });
+let acquireDataDirLease = () => ({ release: () => {} });
+let installServerSessions = () => {};
+let loadSecureCredentials = async () => ({});
+let saveSecureCredentials = async () => {};
+let updateSecureCredentialDocument = async () => {};
+let createSecureCredentialState = () => ({ read: () => ({}) });
+let ensurePhoneSecretIdentity = async () => {};
+let secureComposioConfig = async () => {};
+let secureWorkspaceConfig = async () => {};
+let ensureManagedComposioCredentials = async () => {};
+let syncManagedComposioCredentials = () => {};
+let composioBrokerUrl = () => "";
+let registerCuaIpc = () => {};
+let startCua = async () => ({ mode: "unavailable" });
+let stopCua = async () => {};
+let setCuaStateListener = () => {};
+let registerUpdaterIpc = () => {};
+let registerDesktopPrefs = () => {};
+let jsonFile = () => ({});
+let cloudAccountRestored = async () => {};
+let companionEnabledAtRest = () => false;
+let managedDesktop = { whenRestored: async () => {} };
+let startDesktopCompanion = async () => {};
+let refreshSharedComputersAllowed = async () => true;
+let computerSharing = { cloudChanged: () => {} };
+let installCloudFiles = () => ({ start: () => {}, close: () => {} });
+let desktopMutationToken = randomUUID();
+let createCloudLook = () => ({});
+let installCloudBuy = () => {};
+let requireSharedComputers = async () => {};
+let sharingController = () => ({ state: () => ({}), revoke: async () => {}, activity: () => [], save: async () => {} });
+let randomUUID = () => crypto.randomUUID();
+
+// This is a minimal stub - the full implementation is in the actual source
+// The actual electron/main.mjs is much larger and contains all the IPC handlers
+// and desktop integration logic.
+
+app.whenReady().then(async () => {
+  slog("QubaBot starting...");
+  createWindow();
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: join(__dirname, "preload.mjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+    title: "QubaBot",
+    icon: APP_ICON,
+  });
+
+  mainWindow.loadURL(`http://localhost:5199`);
+
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
+}

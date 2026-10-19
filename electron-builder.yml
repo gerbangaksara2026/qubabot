@@ -1,0 +1,170 @@
+appId: com.qubabot.app
+productName: QubaBot
+artifactName: QubaBot-${version}-${arch}.${ext}
+
+protocols:
+  - name: QubaBot package install
+    schemes: [qubabot]
+
+publish:
+  - provider: github
+    owner: gerbangaksara2026
+    repo: qubabot
+
+directories:
+  buildResources: build
+  output: release
+
+afterPack: ./scripts/after-pack.mjs
+
+files:
+  - electron/**
+  - "!electron/**/*.test.*"
+  - "!electron/resources/speech-helper"
+  - "!electron/resources/speech-helper.swift"
+  - "!electron/resources/speech-helper-Info.plist"
+  - "!electron/resources/OpenMausBot Speech.app/**"
+  - "!electron/resources/recorder-helper"
+  - "!electron/resources/recorder-helper.swift"
+  - "!electron/resources/recorder-helper-Info.plist"
+  - "!electron/resources/OpenMausBot Recorder.app/**"
+  - "!**/node_modules/**"
+  - package.json
+
+asar: true
+
+extraResources:
+  - from: LICENSE
+    to: licenses/QubaBot-LICENSE.txt
+  - from: NOTICE
+    to: licenses/QubaBot-NOTICE.txt
+  - from: LICENSE
+    to: licenses/cloudflared-LICENSE.txt
+  - from: third_party/cloudflared/README.md
+    to: licenses/cloudflared-README.md
+  - from: third_party/hpke-js/core-LICENSE.txt
+    to: licenses/hpke-core-LICENSE.txt
+  - from: third_party/hpke-js/common-LICENSE.txt
+    to: licenses/hpke-common-LICENSE.txt
+  - from: third_party/models-dev/LICENSE
+    to: licenses/models-dev-LICENSE.txt
+  - from: third_party/opencode/LICENSE
+    to: licenses/opencode-LICENSE.txt
+  - from: third_party/t3-code/LICENSE
+    to: licenses/t3-code-LICENSE.txt
+  - from: third_party/onepassword-sdk/LICENSE
+    to: licenses/1password-sdk-LICENSE.txt
+  - from: dist
+    to: ui
+  - from: dist-server
+    to: server
+  - from: dist-companion
+    to: companion
+  - from: skills
+    to: skills
+  - from: dist-native/android-platform-tools
+    to: android-platform-tools
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  icon: build/icon.icns
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extraResources:
+    - from: electron/resources/OpenMausBot Speech.app
+      to: OpenMausBot Speech.app
+    - from: dist-native/${arch}/cua-driver
+      to: cua-driver
+    - from: dist-native/${arch}/cua-sdk
+      to: cua-sdk
+    - from: dist-native/cloudflared/darwin-${arch}/cloudflared
+      to: cloudflared/cloudflared
+    - from: dist-native/browser/darwin-${arch}
+      to: browser-engine
+    - from: dist-native/duckdb/darwin-${arch}/node_modules
+      to: duckdb/node_modules
+  extendInfo:
+    NSMicrophoneUsageDescription: QubaBot uses the microphone for voice dictation into the composer.
+    NSSpeechRecognitionUsageDescription: QubaBot transcribes your voice on-device to type messages for you.
+    NSAccessibilityUsageDescription: QubaBot uses Accessibility when you let a bot control this Mac.
+    NSScreenCaptureUsageDescription: QubaBot uses Screen Recording so bots can see this Mac before acting.
+  notarize: false
+
+dmg:
+  sign: true
+  artifactName: QubaBot-${version}-${arch}.dmg
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+    - target: zip
+      arch: x64
+  icon: build/icon.ico
+  extraResources:
+    - from: dist-native/cloudflared/win32-x64/cloudflared.exe
+      to: cloudflared/cloudflared.exe
+    - from: dist-native/browser/win32-x64
+      to: browser-engine
+    - from: dist-native/duckdb/win32-x64/node_modules
+      to: duckdb/node_modules
+    - from: dist-native/cua-win32-x64/cua-driver.exe
+      to: cua-driver.exe
+    - from: dist-native/cua-win32-x64/cua-driver-background.exe
+      to: cua-driver-background.exe
+    - from: dist-native/cua-win32-x64/cua-sdk
+      to: cua-sdk
+
+nsis:
+  oneClick: true
+  perMachine: false
+  shortcutName: QubaBot
+  artifactName: QubaBot-${version}-setup.${ext}
+
+linux:
+  target:
+    - target: AppImage
+      arch: x64
+    - target: deb
+      arch: x64
+  icon: build/icon.svg
+  category: Utility
+  executableName: qubabot
+  synopsis: Your own team of AI bots, in a chat app
+  description: A local-first chat app for running a team of AI agents.
+  maintainer: masday <gerbangaksara@gmail.com>
+  vendor: QubaBot
+  syncDesktopName: true
+  extraResources:
+    - from: dist-native/cua-linux-x64
+      to: cua-linux-x64
+    - from: dist-native/cloudflared/linux-x64/cloudflared
+      to: cloudflared/cloudflared
+    - from: dist-native/browser/linux-x64
+      to: browser-engine
+    - from: dist-native/duckdb/linux-x64/node_modules
+      to: duckdb/node_modules
+    - from: build/linux-qubabot-browser.apparmor
+      to: qubabot-browser.apparmor
+  desktop:
+    entry:
+      Name: QubaBot
+      Comment: Your own team of AI bots, in a chat app
+      Keywords: AI;Agents;Chat;Productivity;
+
+deb:
+  packageCategory: utils
+  priority: optional
+  fpm: ["--depends", "apparmor"]
+  afterInstall: build/linux-after-install.sh
+  afterRemove: build/linux-after-remove.sh
+
+toolsets:
+  appimage: "1.0.3"
